@@ -121,6 +121,11 @@ impl<T> CollectionT<T> for TransactionalCollection<T> {
         Ok(())
     }
 
+    fn has_index(&self, index: IndexModel) -> crate::Result<bool> {
+        let db = self.db.upgrade().ok_or(Error::DbIsClosed)?;
+        db.has_index(&self.name, index, &self.txn)
+    }
+
     fn drop_index(&self, name: impl AsRef<str>) -> Result<()> {
         let db = self.db.upgrade().ok_or(Error::DbIsClosed)?;
         db.drop_index(&self.name, name.as_ref(), &self.txn)?;

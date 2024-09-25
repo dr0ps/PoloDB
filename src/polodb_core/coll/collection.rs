@@ -76,6 +76,8 @@ pub trait CollectionT<T> {
     fn delete_many(&self, query: Document) -> Result<DeleteResult>;
     fn create_index(&self, index: IndexModel) -> Result<()>;
 
+    fn has_index(&self, index: IndexModel) -> Result<bool>;
+
     /// Drops the index specified by `name` from this collection.
     fn drop_index(&self, name: impl AsRef<str>) -> Result<()>;
     fn drop(&self) -> Result<()>;
@@ -208,6 +210,13 @@ impl<T> CollectionT<T> for Collection<T> {
         let txn = db.start_transaction()?;
         try_db_op!(txn, db.create_index(&self.name, index, &txn));
         Ok(())
+    }
+
+    fn has_index(&self, index: IndexModel) -> Result<bool> {
+        let db = self.db.upgrade().ok_or(Error::DbIsClosed)?;
+        let txn = db.start_transaction()?;
+        let result = try_db_op!(txn, db.has_index(&self.name, index, &txn));
+        Ok(result)
     }
 
     fn drop_index(&self, name: impl AsRef<str>) -> Result<()> {

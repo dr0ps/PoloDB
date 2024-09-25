@@ -325,3 +325,33 @@ fn test_drop_index() {
         assert_eq!(metrics.find_by_index_count(), 0);
     });
 }
+
+
+#[test]
+fn test_has_index() {
+    vec![
+        prepare_db("test-has-index").unwrap(),
+    ].iter().for_each(|db| {
+        let metrics = db.metrics();
+        metrics.enable();
+
+        let col = db.collection::<Document>("teacher");
+
+        let index_model = IndexModel {
+            keys: doc! {
+                "age": 1,
+            },
+            options: None,
+        };
+
+        assert_eq!(false, col.has_index(index_model.clone()).unwrap());
+
+        col.create_index(index_model.clone()).unwrap();
+
+        assert_eq!(true, col.has_index(index_model.clone()).unwrap());
+
+        col.drop_index("age_1").unwrap();
+
+        assert_eq!(false, col.has_index(index_model.clone()).unwrap());
+    });
+}

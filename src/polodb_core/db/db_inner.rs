@@ -197,6 +197,56 @@ impl DatabaseInner {
         Ok(ClientCursor::new(vm))
     }
 
+    pub fn has_index(&self, col_name: &str, index: IndexModel, txn: &TransactionInner) -> Result<bool> {
+        DatabaseInner::validate_col_name(col_name)?;
+
+        self.internal_has_index(txn, col_name, index)
+    }
+
+    fn internal_has_index(&self, txn: &TransactionInner, col_name: &str, index: IndexModel) -> Result<bool> {
+        if index.keys.len() != 1 {
+            return Err(Error::OnlySupportSingleFieldIndexes(Box::new(index.keys)));
+        }
+
+        let options = index.options.as_ref();
+
+        let tuples = index.keys.iter().collect::<Vec<(&String, &Bson)>>();
+        let first_tuple = tuples.first().unwrap();
+
+        let (key, value) = first_tuple;
+
+        self.has_single_index(txn, col_name, key.as_str(), value, options)
+    }
+
+    fn has_single_index(
+        &self,
+        txn: &TransactionInner,
+        col_name: &str,
+        key: &str,
+        order: &Bson,
+        options: Option<&IndexOptions>,
+    ) -> Result<bool> {
+        if !DatabaseInner::is_num_1(order) {
+            return Err(Error::OnlySupportsAscendingOrder(key.to_string()));
+        }
+
+        let index_name = DatabaseInner::make_index_name(key, 1, options)?;
+
+        let test_collection_spec = self.internal_get_collection_id_by_name(txn, col_name);
+        let collection_spec = match test_collection_spec {
+            Ok(spec) => spec,
+            Err(Error::CollectionNotFound(_)) => {
+                return Ok(false);
+            }
+            Err(err) => {
+                return Err(err);
+            }
+        };
+
+        Ok(collection_spec.indexes.get(&index_name).is_some())
+    }
+
+
     pub fn create_index(&self, col_name: &str, index: IndexModel, txn: &TransactionInner) -> Result<()> {
         DatabaseInner::validate_col_name(col_name)?;
 
