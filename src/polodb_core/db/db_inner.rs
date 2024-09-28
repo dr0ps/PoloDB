@@ -338,15 +338,26 @@ impl DatabaseInner {
         builder.execute(IndexHelperOperation::Insert)
     }
 
-    pub fn drop_index(&self, col_name: &str, index_name: &str, txn: &TransactionInner) -> Result<()> {
+    pub fn drop_index(&self, col_name: &str, index: IndexModel, txn: &TransactionInner) -> Result<()> {
         DatabaseInner::validate_col_name(col_name)?;
 
-        self.internal_drop_index(col_name, index_name, txn)?;
-
-        Ok(())
+        self.internal_drop_index(txn, col_name, index)
     }
 
-    fn internal_drop_index(&self, col_name: &str, index_name: &str, txn: &TransactionInner) -> Result<()> {
+    fn internal_drop_index(&self, txn: &TransactionInner, col_name: &str, index: IndexModel) -> Result<()> {
+        if index.keys.len() != 1 {
+            return Err(Error::OnlySupportSingleFieldIndexes(Box::new(index.keys)));
+        }
+
+        let options = index.options.as_ref();
+
+        let tuples = index.keys.iter().collect::<Vec<(&String, &Bson)>>();
+        let first_tuple = tuples.first().unwrap();
+
+        let (key, _) = first_tuple;
+
+        let index_name = DatabaseInner::make_index_name(key, 1, options)?;
+
         let test_collection_spec = self.internal_get_collection_id_by_name(txn, col_name);
         let mut collection_spec = match test_collection_spec {
             Ok(spec) => spec,
@@ -358,7 +369,7 @@ impl DatabaseInner {
             }
         };
 
-        let index_info = collection_spec.indexes.get(index_name);
+        let index_info = collection_spec.indexes.get(&index_name);
         if index_info.is_none() {
             return Ok(());
         }
@@ -368,13 +379,13 @@ impl DatabaseInner {
         let mut builder = IndexBuilder::new(
             txn,
             col_name,
-            index_name,
+            index_name.as_str(),
             index_info,
         );
 
         builder.execute(IndexHelperOperation::Delete)?;
 
-        collection_spec.indexes.shift_remove(index_name);
+        collection_spec.indexes.shift_remove(&index_name);
 
         DatabaseInner::update_collection_spec(
             col_name,

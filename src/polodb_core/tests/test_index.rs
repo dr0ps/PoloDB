@@ -300,19 +300,21 @@ fn test_drop_index() {
 
         let col = db.collection::<Document>("teacher");
 
-        col.create_index(IndexModel {
+        let index_model = IndexModel {
             keys: doc! {
                 "age": 1,
             },
             options: None,
-        }).unwrap();
+        };
+
+        col.create_index(index_model.clone()).unwrap();
 
         col.insert_one(doc! {
             "name": "David",
             "age": 33,
         }).unwrap();
 
-        col.drop_index("age_1").unwrap();
+        col.drop_index(index_model).unwrap();
 
         {
             let doc = col.find_one(doc! {
@@ -350,7 +352,7 @@ fn test_has_index() {
 
         assert_eq!(true, col.has_index(index_model.clone()).unwrap());
 
-        col.drop_index("age_1").unwrap();
+        col.drop_index(index_model.clone()).unwrap();
 
         assert_eq!(false, col.has_index(index_model.clone()).unwrap());
     });

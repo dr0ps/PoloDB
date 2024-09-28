@@ -78,8 +78,7 @@ pub trait CollectionT<T> {
 
     fn has_index(&self, index: IndexModel) -> Result<bool>;
 
-    /// Drops the index specified by `name` from this collection.
-    fn drop_index(&self, name: impl AsRef<str>) -> Result<()>;
+    fn drop_index(&self, index: IndexModel) -> Result<()>;
     fn drop(&self) -> Result<()>;
 
     /// Inserts `doc` into the collection.
@@ -219,10 +218,10 @@ impl<T> CollectionT<T> for Collection<T> {
         Ok(result)
     }
 
-    fn drop_index(&self, name: impl AsRef<str>) -> Result<()> {
+    fn drop_index(&self, index: IndexModel) -> Result<()> {
         let db = self.db.upgrade().ok_or(Error::DbIsClosed)?;
         let txn = db.start_transaction()?;
-        try_db_op!(txn, db.drop_index(&self.name, name.as_ref(), &txn));
+        try_db_op!(txn, db.drop_index(&self.name, index, &txn));
         Ok(())
     }
 
